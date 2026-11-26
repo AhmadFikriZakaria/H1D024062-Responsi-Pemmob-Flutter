@@ -1,26 +1,33 @@
 import 'package:flutter/material.dart';
 
-/// Tampilan saat data sedang dimuat.
+/// Tampilan saat data sedang dimuat: spinner kecil + teks.
 class LoadingView extends StatelessWidget {
   final String message;
   const LoadingView({super.key, this.message = 'Memuat data...'});
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Center(
-      child: Column(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 16),
-          Text(message, style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(strokeWidth: 1.5),
+          ),
+          const SizedBox(width: 10),
+          Text(message,
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
         ],
       ),
     );
   }
 }
 
-/// Tampilan saat request gagal, lengkap dengan tombol "Coba Lagi".
+/// Tampilan saat request gagal, lengkap dengan tombol "Coba lagi".
 class ErrorView extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
@@ -28,26 +35,25 @@ class ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.cloud_off, size: 64, color: scheme.error),
-            const SizedBox(height: 16),
-            Text('Terjadi masalah',
-                style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Coba Lagi'),
-            ),
-          ],
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 320),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Gagal memuat data', style: theme.textTheme.titleMedium),
+              const SizedBox(height: 6),
+              Text(message,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+              const SizedBox(height: 16),
+              OutlinedButton(onPressed: onRetry, child: const Text('Coba lagi')),
+            ],
+          ),
         ),
       ),
     );
@@ -56,30 +62,29 @@ class ErrorView extends StatelessWidget {
 
 /// Tampilan saat data kosong (mis. kota tidak ditemukan).
 class EmptyView extends StatelessWidget {
-  final IconData icon;
   final String title;
   final String message;
-  const EmptyView({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.message,
-  });
+  const EmptyView({super.key, required this.title, required this.message});
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 64, color: Theme.of(context).hintColor),
-            const SizedBox(height: 16),
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Text(message, textAlign: TextAlign.center),
-          ],
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 320),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(title, style: theme.textTheme.titleMedium),
+              const SizedBox(height: 6),
+              Text(message,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            ],
+          ),
         ),
       ),
     );

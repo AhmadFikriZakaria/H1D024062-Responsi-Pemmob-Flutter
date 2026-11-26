@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../models/location.dart';
@@ -6,7 +7,7 @@ import '../viewmodels/favorites_view_model.dart';
 import '../viewmodels/load_status.dart';
 import '../viewmodels/search_view_model.dart';
 import '../viewmodels/weather_view_model.dart';
-import 'widgets/gradient_background.dart';
+import 'widgets/panel.dart';
 import 'widgets/state_views.dart';
 
 /// Layar 2: Search / Location Screen.
@@ -41,45 +42,59 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<SearchViewModel>();
+    final theme = Theme.of(context);
 
-    return GradientBackground(
+    return CallbackShortcuts(
+      // Esc = kembali ke Home (kebiasaan keyboard di web/desktop).
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.escape): () =>
+            Navigator.of(context).maybePop(),
+      },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Cari Kota'),
+          titleSpacing: 0,
+          leading: IconButton(
+            tooltip: 'Kembali',
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
+          title: TextField(
+            controller: _controller,
+            autofocus: true,
+            textInputAction: TextInputAction.search,
+            onChanged: vm.onQueryChanged,
+            onSubmitted: vm.search,
+            style: theme.textTheme.bodyLarge,
+            cursorWidth: 1.5,
+            decoration: InputDecoration(
+              hintText: 'Ketik nama kota, mis. Purwokerto',
+              hintStyle: theme.textTheme.bodyLarge
+                  ?.copyWith(color: theme.colorScheme.outline),
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+          actions: [
+            if (vm.query.isNotEmpty)
+              IconButton(
+                tooltip: 'Hapus',
+                icon: const Icon(Icons.close),
+                onPressed: () {
+                  _controller.clear();
+                  vm.onQueryChanged('');
+                },
+              ),
+            const SizedBox(width: 8),
+          ],
         ),
         body: SafeArea(
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 640),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                    child: TextField(
-                      controller: _controller,
-                      autofocus: true,
-                      textInputAction: TextInputAction.search,
-                      onChanged: vm.onQueryChanged,
-                      onSubmitted: vm.search,
-                      decoration: InputDecoration(
-                        hintText: 'Ketik nama kota, mis. Purwokerto',
-                        prefixIcon: const Icon(Icons.search),
-                        suffixIcon: vm.query.isEmpty
-                            ? null
-                            : IconButton(
-                                tooltip: 'Hapus',
-                                icon: const Icon(Icons.close),
-                                onPressed: () {
-                                  _controller.clear();
-                                  vm.onQueryChanged('');
-                                },
-                              ),
-                      ),
-                    ),
-                  ),
-                  Expanded(child: _buildBody(vm)),
-                ],
-              ),
+              child: _buildBody(vm),
             ),
           ),
         ),
@@ -104,18 +119,17 @@ class _SearchScreenState extends State<SearchScreen> {
             message: vm.errorMessage, onRetry: () => vm.search(vm.query));
       case LoadStatus.empty:
         return EmptyView(
-          icon: Icons.location_off,
           title: 'Kota tidak ditemukan',
           message: 'Tidak ada hasil untuk "${vm.query.trim()}". '
               'Coba periksa ejaan atau gunakan nama kota lain.',
         );
       case LoadStatus.success:
-        return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          itemCount: vm.results.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 8),
-          itemBuilder: (context, i) =>
-              _LocationTile(location: vm.results[i], onTap: _select),
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          children: [
+            SectionLabel('${vm.results.length} hasil'),
+            _LocationList(locations: vm.results, onTap: _select),
+          ],
         );
     }
   }
@@ -133,10 +147,10 @@ class _IdleView extends StatelessWidget {
     final search = context.watch<SearchViewModel>();
     final history = search.history;
     final theme = Theme.of(context);
+    final c = theme.colorScheme;
 
     if (favorites.isEmpty && history.isEmpty) {
       return const EmptyView(
-        icon: Icons.travel_explore,
         title: 'Cari kota di seluruh dunia',
         message: 'Ketik nama kota untuk melihat cuacanya. '
             'Kota favorit dan riwayat pencarian akan muncul di sini.',
@@ -144,46 +158,45 @@ class _IdleView extends StatelessWidget {
     }
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
       children: [
         if (favorites.isNotEmpty) ...[
-          Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 8),
-            child: Text('Favorit', style: theme.textTheme.titleMedium),
-          ),
-          for (final f in favorites) ...[
-            _LocationTile(location: f, onTap: onSelect),
-            const SizedBox(height: 8),
-          ],
-          const SizedBox(height: 12),
+          const SectionLabel('Favorit'),
+          _LocationList(locations: favorites, onTap: onSelect),
+          const SizedBox(height: 28),
         ],
         if (history.isNotEmpty) ...[
-          Row(
-            children: [
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 4),
-                  child: Text('Riwayat pencarian',
-                      style: theme.textTheme.titleMedium),
-                ),
-              ),
-              TextButton(
-                onPressed: search.clearHistory,
-                child: const Text('Hapus'),
-              ),
-            ],
+          SectionLabel(
+            'Riwayat pencarian',
+            trailing: TextButton(
+              onPressed: search.clearHistory,
+              child: const Text('Hapus'),
+            ),
           ),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final q in history)
-                ActionChip(
-                  avatar: const Icon(Icons.history, size: 18),
-                  label: Text(q),
-                  onPressed: () => onHistoryTap(q),
-                ),
-            ],
+          Panel(
+            child: Column(
+              children: [
+                for (var i = 0; i < history.length; i++) ...[
+                  if (i > 0) const RowDivider(),
+                  HoverRow(
+                    onTap: () => onHistoryTap(history[i]),
+                    child: SizedBox(
+                      height: 40,
+                      child: Row(
+                        children: [
+                          Icon(Icons.history, size: 16, color: c.outline),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(history[i],
+                                style: theme.textTheme.bodyMedium),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
       ],
@@ -191,34 +204,73 @@ class _IdleView extends StatelessWidget {
   }
 }
 
+/// Daftar baris lokasi dalam satu [Panel].
+class _LocationList extends StatelessWidget {
+  final List<Location> locations;
+  final void Function(Location) onTap;
+  const _LocationList({required this.locations, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Panel(
+      child: Column(
+        children: [
+          for (var i = 0; i < locations.length; i++) ...[
+            if (i > 0) const RowDivider(),
+            _LocationRow(location: locations[i], onTap: onTap),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 /// Satu baris hasil lokasi, dengan tombol bintang untuk favorit.
-class _LocationTile extends StatelessWidget {
+class _LocationRow extends StatelessWidget {
   final Location location;
   final void Function(Location) onTap;
-  const _LocationTile({required this.location, required this.onTap});
+  const _LocationRow({required this.location, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final favorites = context.watch<FavoritesViewModel>();
     final isFavorite = favorites.isFavorite(location);
     final theme = Theme.of(context);
+    final c = theme.colorScheme;
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: ListTile(
-        hoverColor: theme.colorScheme.primary.withValues(alpha: 0.10),
-        leading: const Icon(Icons.location_on_outlined),
-        title: Text(location.name, style: theme.textTheme.titleMedium),
-        subtitle: Text(location.subtitle.isEmpty
-            ? '${location.latitude.toStringAsFixed(2)}, ${location.longitude.toStringAsFixed(2)}'
-            : location.subtitle),
-        trailing: IconButton(
-          tooltip: isFavorite ? 'Hapus dari favorit' : 'Simpan ke favorit',
-          icon: Icon(isFavorite ? Icons.star : Icons.star_border,
-              color: isFavorite ? Colors.amber : null),
-          onPressed: () => favorites.toggle(location),
+    return HoverRow(
+      onTap: () => onTap(location),
+      padding: const EdgeInsets.only(left: 14, right: 6),
+      child: SizedBox(
+        height: 52,
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(location.name,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall),
+                  Text(
+                    location.subtitle.isEmpty
+                        ? '${location.latitude.toStringAsFixed(2)}, ${location.longitude.toStringAsFixed(2)}'
+                        : location.subtitle,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: isFavorite ? 'Hapus dari favorit' : 'Simpan ke favorit',
+              icon: Icon(isFavorite ? Icons.star : Icons.star_border,
+                  color: isFavorite ? c.onSurface : null),
+              onPressed: () => favorites.toggle(location),
+            ),
+          ],
         ),
-        onTap: () => onTap(location),
       ),
     );
   }

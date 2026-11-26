@@ -1,10 +1,15 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/app_theme.dart';
 import '../../core/weather_codes.dart';
 import '../../models/weather.dart';
+import 'panel.dart';
 
-/// Daftar perkiraan cuaca beberapa hari ke depan.
+/// Prakiraan harian berbentuk tabel: hari, kondisi, peluang hujan, dan
+/// rentang suhu min-maks (dengan bar tipis relatif terhadap seluruh minggu).
 class ForecastList extends StatelessWidget {
   final List<DailyForecast> daily;
   const ForecastList({super.key, required this.daily});
@@ -18,17 +23,36 @@ class ForecastList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      clipBehavior: Clip.antiAlias,
+    final weekMin = daily.map((d) => d.tempMin).reduce(math.min);
+    final weekMax = daily.map((d) => d.tempMax).reduce(math.max);
+    final head = theme.textTheme.labelSmall;
+
+    return Panel(
       child: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(child: Text('HARI', style: head)),
+                SizedBox(
+                    width: 44,
+                    child: Text('HUJAN', textAlign: TextAlign.right, style: head)),
+                const SizedBox(width: 16),
+                SizedBox(
+                    width: 112,
+                    child: Text('SUHU', textAlign: TextAlign.right, style: head)),
+              ],
+            ),
+          ),
           for (var i = 0; i < daily.length; i++) ...[
-            if (i > 0) const Divider(height: 1),
+            const RowDivider(),
             _ForecastRow(
               label: _dayLabel(i, daily[i].date),
               date: DateFormat('d MMM', 'id_ID').format(daily[i].date),
               forecast: daily[i],
-              theme: theme,
+              weekMin: weekMin,
+              weekMax: weekMax,
             ),
           ],
         ],
@@ -41,56 +65,128 @@ class _ForecastRow extends StatelessWidget {
   final String label;
   final String date;
   final DailyForecast forecast;
-  final ThemeData theme;
+  final double weekMin;
+  final double weekMax;
   const _ForecastRow({
     required this.label,
     required this.date,
     required this.forecast,
-    required this.theme,
+    required this.weekMin,
+    required this.weekMax,
   });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final c = theme.colorScheme;
     final condition = describeWeatherCode(forecast.weatherCode);
     final rain = forecast.rainProbability;
-    return InkWell(
-      onTap: () {},
-      hoverColor: theme.colorScheme.primary.withValues(alpha: 0.08),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    final num = theme.textTheme.bodyMedium
+        ?.copyWith(fontFeatures: AppTheme.tabular);
+
+    return HoverRow(
+      child: SizedBox(
+        height: 52,
         child: Row(
           children: [
+            Icon(condition.icon, size: 16, color: c.onSurfaceVariant),
+            const SizedBox(width: 10),
             Expanded(
-              flex: 4,
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label, style: theme.textTheme.titleMedium),
-                  Text(date,
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: theme.hintColor)),
+                  Text(label,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall),
+                  Text(date, style: theme.textTheme.bodySmall),
                 ],
               ),
             ),
-            Icon(condition.icon, color: condition.color),
-            const SizedBox(width: 8),
-            Expanded(
-              flex: 3,
-              child: Text(
-                rain == null ? '' : '💧 $rain%',
-                style: theme.textTheme.bodyMedium,
+            SizedBox(
+              width: 44,
+              child: Text(rain == null ? '-' : '$rain%',
+                  textAlign: TextAlign.right,
+                  style: num?.copyWith(color: c.onSurfaceVariant)),
+            ),
+            const SizedBox(width: 16),
+            SizedBox(
+              width: 112,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  SizedBox(
+                    width: 24,
+                    child: Text('${forecast.tempMin.round()}°',
+                        textAlign: TextAlign.right,
+                        style: num?.copyWith(color: c.onSurfaceVariant)),
+                  ),
+                  const SizedBox(width: 8),
+                  _RangeBar(
+                    min: forecast.tempMin,
+                    max: forecast.tempMax,
+                    weekMin: weekMin,
+                    weekMax: weekMax,
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 24,
+                    child: Text('${forecast.tempMax.round()}°',
+                        textAlign: TextAlign.right,
+                        style: num?.copyWith(fontWeight: FontWeight.w500)),
+                  ),
+                ],
               ),
             ),
-            Text(
-              '${forecast.tempMin.round()}°',
-              style:
-                  theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),
-            ),
-            const SizedBox(width: 8),
-            Text('${forecast.tempMax.round()}°',
-                style: theme.textTheme.titleMedium),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Bar tipis 3px: posisi rentang suhu hari itu terhadap rentang seminggu.
+class _RangeBar extends StatelessWidget {
+  final double min, max, weekMin, weekMax;
+  const _RangeBar({
+    required this.min,
+    required this.max,
+    required this.weekMin,
+    required this.weekMax,
+  });
+
+  static const double _width = 40;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).colorScheme;
+    final span = weekMax - weekMin;
+    final start = span <= 0 ? 0.0 : (min - weekMin) / span * _width;
+    final len = span <= 0 ? _width : math.max(4.0, (max - min) / span * _width);
+    return SizedBox(
+      width: _width,
+      height: 3,
+      child: Stack(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: c.outlineVariant,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Positioned(
+            left: math.min(start, _width - len),
+            width: len,
+            top: 0,
+            bottom: 0,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: c.onSurfaceVariant,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

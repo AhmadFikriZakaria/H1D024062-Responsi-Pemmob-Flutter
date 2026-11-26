@@ -9,23 +9,31 @@ Aplikasi cuaca sederhana berbasis **Flutter** yang mengambil data langsung dari 
 | Mata kuliah | Pemrograman Mobile B (Informatika, Universitas Jenderal Soedirman) |
 | Shift | Awal B, Akhir C |
 
+## Video Penjelasan
+
+Penjelasan kode aplikasi (struktur, API, MVVM, dan demo): **https://youtu.be/dThfKPqF9lU**
+
 ## Fitur
 
 - Cari kota di seluruh dunia berdasarkan nama (Geocoding API), pencarian memakai debounce 500 ms.
 - Halaman cuaca: nama kota, kondisi saat ini, suhu, terasa seperti, kelembapan, kecepatan angin, curah hujan, peluang hujan hari ini, dan prakiraan 7 hari (suhu min/maks + peluang hujan).
 - **Local storage** (`shared_preferences`): kota favorit, riwayat pencarian (maks. 8), kota terakhir dilihat, dan pilihan tema. Semuanya tampil kembali saat aplikasi dibuka ulang.
-- Penanganan state **loading / kosong / error** (ada tombol *Coba Lagi*), pull-to-refresh.
-- Tema gelap/terang (Material 3), latar gradasi lembut, tampilan responsif.
+- Penanganan state **loading / kosong / error** (ada tombol *Coba lagi*), pull-to-refresh.
+- Tema gelap/terang (Material 3) dengan gaya datar dan minimal: font Inter, border tipis, tanpa gradasi, tampilan responsif.
 
 ## Screenshot
 
-| Home / Cuaca | Search kosong (favorit + riwayat) |
+| Home / Cuaca (tema gelap) | Home / Cuaca (tema terang) |
 |---|---|
-| ![Home](docs/home.png) | ![Search kosong](docs/search-kosong.png) |
+| ![Home](docs/home.png) | ![Home terang](docs/home-terang.png) |
 
-| Search: hasil pencarian | Search: kota favorit ditandai bintang |
+| Search kosong | Search: hasil pencarian |
 |---|---|
-| ![Search hasil](docs/search-hasil.png) | ![Search favorit](docs/search-favorit.png) |
+| ![Search kosong](docs/search-kosong.png) | ![Search hasil](docs/search-hasil.png) |
+
+| Search: favorit dan riwayat tersimpan | Search: kondisi error (tanpa internet) |
+|---|---|
+| ![Search favorit](docs/search-favorit.png) | ![Search error](docs/search-error.png) |
 
 ## Struktur Aplikasi
 
@@ -36,8 +44,8 @@ lib/
 ├── main.dart                     # titik masuk: inisialisasi storage + runApp
 ├── app.dart                      # MultiProvider + MaterialApp (tema terang/gelap)
 ├── core/
-│   ├── app_theme.dart            # Theme Material 3 + warna gradasi latar
-│   └── weather_codes.dart        # kode cuaca WMO -> teks Indonesia, ikon, warna
+│   ├── app_theme.dart            # Theme + Typography Material 3 (terang/gelap, font Inter)
+│   └── weather_codes.dart        # kode cuaca WMO -> teks Indonesia dan ikon
 ├── models/                       # MODEL
 │   ├── location.dart             # Location (hasil geocoding, bisa disimpan sebagai JSON)
 │   └── weather.dart              # CurrentWeather, DailyForecast, WeatherData (JSON -> Dart)
@@ -55,7 +63,7 @@ lib/
 └── views/                        # VIEW
     ├── weather_screen.dart       # Layar 1: Home / Cuaca
     ├── search_screen.dart        # Layar 2: Search / Lokasi
-    └── widgets/                  # komponen yang dipakai ulang
+    └── widgets/                  # komponen: panel, current_weather, detail_list, forecast_list, state_views
 ```
 
 Alur data: **View → ViewModel → Repository → Service → Open-Meteo API**. View hanya membaca state dari ViewModel (`context.watch` / `Consumer`) dan memanggil fungsi ViewModel; tidak ada pemanggilan API di dalam View.
@@ -68,7 +76,7 @@ Kedua endpoint dipanggil dengan HTTP **GET** memakai paket `http`, respons JSON 
    `https://geocoding-api.open-meteo.com/v1/search?name=<kota>&count=10&language=id&format=json`
    Jika kota tidak ditemukan, API tidak mengirim key `results`, sehingga hasilnya dianggap daftar kosong (state *empty*).
 2. **Forecast** (cuaca)
-   `https://api.open-meteo.com/v1/forecast?latitude=..&longitude=..&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=7`
+   `https://api.open-meteo.com/v1/forecast?latitude=..&longitude=..&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=7`
 
 Penanganan error: timeout 15 detik, status bukan 200, JSON tidak valid, dan tidak ada internet semuanya diubah menjadi `ApiException` dengan pesan ramah yang ditampilkan di layar. Request memakai `requestId` agar respons lama tidak menimpa respons yang lebih baru.
 
@@ -78,6 +86,10 @@ Penanganan error: timeout 15 detik, status bukan 200, JSON tidak valid, dan tida
 - **ViewModel** (`viewmodels/`): menyimpan state dan logika; memanggil `notifyListeners()` setiap state berubah.
 - **View** (`views/`): `StatelessWidget` / `StatefulWidget` yang hanya menampilkan state dan meneruskan aksi pengguna.
 
+## Theme dan Typography
+
+Seluruh tampilan diatur terpusat di `lib/core/app_theme.dart`: `ThemeData` Material 3 dengan dua `ColorScheme` (gelap dan terang) dan satu `TextTheme` berfont Inter dengan hierarki ukuran (judul, isi, keterangan). Angka memakai *tabular figures* agar kolom suhu rata. Widget mengambil warna dan gaya teks dari `Theme.of(context)`, sehingga tampilan konsisten. Isi layar dibatasi lebar maksimal 640 dan tersusun fleksibel, jadi nyaman dari layar HP sampai browser lebar.
+
 ## Cara Menjalankan
 
 ```bash
@@ -86,10 +98,12 @@ flutter run            # pilih emulator/HP Android, atau: flutter run -d chrome
 flutter test           # 22 unit/widget test (API dimock, tidak butuh internet)
 ```
 
+Untuk web, `flutter run -d chrome` memakai port acak dan profil sementara, sehingga data favorit/riwayat (localStorage browser) hilang setiap run. Agar data bertahan, jalankan `flutter run -d web-server --web-port=8888` lalu buka `http://localhost:8888` di Chrome biasa. Di emulator/HP Android data selalu bertahan.
+
 Butuh koneksi internet saat aplikasi dijalankan. Izin `INTERNET` sudah ditambahkan di `AndroidManifest.xml`.
 
 ## Dependensi
 
-`provider`, `http`, `shared_preferences`, `intl`.
+`provider`, `http`, `shared_preferences`, `intl`. Font [Inter](https://rsms.me/inter/) (SIL OFL) disertakan di `assets/fonts/`.
 
 Sumber data cuaca: [Open-Meteo.com](https://open-meteo.com/) (CC BY 4.0).

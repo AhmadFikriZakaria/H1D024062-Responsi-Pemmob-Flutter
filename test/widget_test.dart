@@ -30,7 +30,7 @@ void main() {
     expect(find.text('27°'), findsOneWidget);
     expect(find.text('Hujan ringan'), findsWidgets);
     expect(find.text('80%'), findsOneWidget); // kelembapan
-    expect(find.text('85%'), findsOneWidget); // peluang hujan hari ini
+    expect(find.text('85%'), findsWidgets); // peluang hujan (detail + prakiraan)
     // Daftar prakiraan ada di bawah layar: scroll dulu.
     await tester.scrollUntilVisible(find.text('Besok'), 200,
         scrollable: find.byType(Scrollable).first);
@@ -38,10 +38,10 @@ void main() {
     expect(find.text('Besok'), findsOneWidget);
   });
 
-  testWidgets('Error API -> pesan + tombol Coba Lagi', (tester) async {
+  testWidgets('Error API -> pesan + tombol Coba lagi', (tester) async {
     await pumpApp(tester, status: 500);
     await tester.pumpAndSettle();
-    expect(find.text('Coba Lagi'), findsOneWidget);
+    expect(find.text('Coba lagi'), findsOneWidget);
   });
 
   testWidgets('Cari kota -> pilih -> favorit tersimpan', (tester) async {
